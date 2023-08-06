@@ -82,9 +82,14 @@ include(CMakePushCheckState)
 include(GNUInstallDirs)
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/CheckCPUArchitecture.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/sdlchecks.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/sdlcompilers.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/sdlplatform.cmake")
 
+SDL_DetectCompiler()
 SDL_DetectCMakePlatform()
+SDL_AddCommonCMakeOptions(
+  WERROR_OPTION_NAME SDL2COMPAT_WERROR
+)
 CheckOpenGLES()
 
 check_cpu_architecture(x86 SDL_CPU_X86)
@@ -178,6 +183,7 @@ endif()
 
 add_library(SDL2 SHARED ${SDL2COMPAT_SRCS})
 add_library(SDL2::SDL2 ALIAS SDL2)
+SDL_AddCommonCompilerFlags(SDL2)
 target_link_libraries(SDL2 PRIVATE $<BUILD_INTERFACE:SDL3::Headers>)
 target_include_directories(SDL2
   INTERFACE
@@ -361,6 +367,7 @@ if(SDL2COMPAT_TESTS)
   function(test_program NAME)
     cmake_parse_arguments(args "NONINTERACTIVE" "TIMEOUT" "SRC" ${ARGN})
     add_executable(${NAME} ${args_SRC})
+    SDL_AddCommonCompilerFlags(${NAME})
     target_link_libraries(${NAME} PRIVATE SDL2::SDL2main SDL2::SDL2test SDL2::SDL2)
     # Turn off MSVC's aggressive C runtime warnings for the old test programs.
     if(MSVC)
@@ -529,6 +536,7 @@ set(installed_targets SDL2)
 if(SDL2COMPAT_STATICDEVEL AND SDL2COMPAT_DEVEL)
   add_library(SDL2-static STATIC ${SDL2COMPAT_SRCS})
   add_library(SDL2::SDL2-static ALIAS SDL2-static)
+  SDL_AddCommonCompilerFlags(SDL2-static)
   target_link_libraries(SDL2-static PRIVATE $<BUILD_INTERFACE:SDL3::Headers>)
   target_include_directories(SDL2-static
     INTERFACE
