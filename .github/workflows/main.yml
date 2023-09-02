@@ -14,16 +14,17 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-        - { name: 'Linux',                    os: ubuntu-latest,  shell: sh }
-        - { name: 'MacOS',                    os: macos-latest,   shell: sh }
-        - { name: 'Windows msys2 (mingw32)',  os: windows-latest, shell: 'msys2 {0}', msystem: mingw32, msys-env: mingw-w64-i686 }
-        - { name: 'Windows msys2 (mingw64)',  os: windows-latest, shell: 'msys2 {0}', msystem: mingw64, msys-env: mingw-w64-x86_64 }
-        - { name: 'Windows msys2 (clang32)',  os: windows-latest, shell: 'msys2 {0}', msystem: clang32, msys-env: mingw-w64-clang-i686 }
-        - { name: 'Windows msys2 (clang64)',  os: windows-latest, shell: 'msys2 {0}', msystem: clang64, msys-env: mingw-w64-clang-x86_64 }
-        - { name: 'Windows MSVC (x86)',       os: windows-latest, shell: sh, msvc: true, msvc-arch: x86 }
-        - { name: 'Windows MSVC (x64)',       os: windows-latest, shell: sh, msvc: true, msvc-arch: x64 }
-        - { name: 'Windows MSVC (arm32)',     os: windows-latest, shell: sh, msvc: true, msvc-arch: amd64_arm, cross: true }
-        - { name: 'Windows MSVC (arm64)',     os: windows-latest, shell: sh, msvc: true, msvc-arch: amd64_arm64, cross: true }
+        - { name: 'Linux',                    os: ubuntu-latest,  ninja: true,  shell: sh }
+        - { name: 'MacOS',                    os: macos-latest,   ninja: true,  shell: sh }
+        - { name: 'Windows msys2 (mingw32)',  os: windows-latest, ninja: true,  shell: 'msys2 {0}', msystem: mingw32, msys-env: mingw-w64-i686 }
+        - { name: 'Windows msys2 (mingw64)',  os: windows-latest, ninja: true,  shell: 'msys2 {0}', msystem: mingw64, msys-env: mingw-w64-x86_64 }
+        - { name: 'Windows msys2 (clang32)',  os: windows-latest, ninja: true,  shell: 'msys2 {0}', msystem: clang32, msys-env: mingw-w64-clang-i686 }
+        - { name: 'Windows msys2 (clang64)',  os: windows-latest, ninja: true,  shell: 'msys2 {0}', msystem: clang64, msys-env: mingw-w64-clang-x86_64 }
+        - { name: 'Windows MSVC (x86)',       os: windows-latest, ninja: true,  shell: sh, msvc: true, msvc-arch: x86 }
+        - { name: 'Windows MSVC (x64)',       os: windows-latest, ninja: true,  shell: sh, msvc: true, msvc-arch: x64 }
+        - { name: 'Windows MSVC (arm32)',     os: windows-latest, ninja: true,  shell: sh, msvc: true, msvc-arch: amd64_arm, cross: true }
+        - { name: 'Windows MSVC (arm64)',     os: windows-latest, ninja: true,  shell: sh, msvc: true, msvc-arch: amd64_arm64, cross: true }
+        - { name: 'Windows MSVC (UWP)',       os: windows-latest, ninja: false, shell: sh, cross: true, cmake-arguments: '-DCMAKE_SYSTEM_NAME="WindowsStore" -DCMAKE_SYSTEM_VERSION=10.0' }
     defaults:
       run:
         shell: ${{ matrix.platform.shell }}
@@ -45,15 +46,15 @@ jobs:
     - name: Get sdl2-compat sources
       uses: actions/checkout@v3
     - name: Install Ninja
-      if: ${{ !contains(matrix.platform.shell, 'msys2') }}
+      if: ${{ !contains(matrix.platform.shell, 'msys2') && matrix.platform.ninja }}
       uses: turtlesec-no/get-ninja@main
     - name: Set up SDL3
       uses: libsdl-org/setup-sdl@main
       id: sdl
       with:
-        cmake-generator: Ninja
+        cmake-arguments: ${{ matrix.platform.cmake-arguments }}
+        cmake-generator: ${{ matrix.platform.ninja && 'Ninja' || '' }}
         version: 3-head
-        sdl-test: true
         shell: ${{ matrix.platform.shell }}
         add-to-environment: true
     - name: Set up Linux dependencies
@@ -63,8 +64,9 @@ jobs:
         sudo apt-get install -y libgl1-mesa-dev libglu1-mesa-dev
     - name: Configure (CMake)
       run: |
-        cmake -B build -GNinja \
-          -DSDL2COMPAT_WERROR=ON
+        cmake -B build ${{ matrix.platform.ninja && 'Ninja' || '' }} \
+          -DSDL2COMPAT_WERROR=ON \
+          ${{ matrix.platform.cmake-arguments }}
     - name: Build (CMake)
       run: |
         cmake --build build/ --verbose
