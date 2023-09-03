@@ -667,6 +667,9 @@ __declspec(selectany) int _fltused = 1;
 #if defined(__WATCOMC__)
 #define _DllMainCRTStartup LibMain
 #endif
+#if defined(__WINRT__)
+#define _DllMainCRTStartup DllMain
+#endif
 BOOL WINAPI _DllMainCRTStartup(HANDLE dllhandle, DWORD reason, LPVOID reserved)
 {
     (void) dllhandle;
@@ -677,6 +680,15 @@ BOOL WINAPI _DllMainCRTStartup(HANDLE dllhandle, DWORD reason, LPVOID reserved)
         break;
 
     case DLL_PROCESS_ATTACH: /* init once for each new process */
+#ifdef __WINRT__
+    {
+
+        HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+        if (hr == RPC_E_CHANGED_MODE) {
+            hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+        }
+    }
+#endif
         if (!LoadSDL3()) {
             error_dialog(loaderror);
             #if 0

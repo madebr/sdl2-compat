@@ -559,6 +559,12 @@ int SDLTest_CommonArg(SDLTest_CommonState *state, int index)
         /* Debug flag sent by Xcode */
         return 2;
     }
+#if defined(__WINRT__)
+    if (SDL_strncmp(argv[index], "-ServerName:", 12) == 0) {
+        /* Debug flag sent by Visual Studio */
+        return 1;
+    }
+#endif
     return 0;
 }
 

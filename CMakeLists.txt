@@ -371,6 +371,12 @@ target_include_directories(SDL2_test
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/SDL2>"
 )
 
+if(WINDOWS_STORE)
+  cmake_minimum_required(VERSION 3.19)
+  # CMP0112: Target file component generator expressions do not add target dependencies.
+  cmake_policy(SET CMP0112 NEW)
+endif()
+
 if(SDL2COMPAT_TESTS)
   enable_testing()
 
@@ -391,8 +397,35 @@ if(SDL2COMPAT_TESTS)
     endif()
   endif()
 
+  file(GLOB RESOURCE_FILES test/*.bmp test/*.wav test/*.hex test/moose.dat test/utf8.txt)
+
   function(test_program NAME)
     cmake_parse_arguments(args "NONINTERACTIVE" "TIMEOUT" "SRC" ${ARGN})
+    if(WINDOWS_STORE)
+      list(APPEND args_SRC $<TARGET_FILE:SDL3::SDL3-shared>)
+    endif()
+    # FIXME: resources are not required for all tests
+    list(APPEND args_SRC ${RESOURCE_FILES})
+    if(WINDOWS_STORE)
+      set(uwp_bindir "${CMAKE_CURRENT_BINARY_DIR}/${NAME}.dir")
+      if(NOT IS_DIRECTORY "${uwp_bindir}")
+        execute_process(COMMAND "${CMAKE_COMMAND}" -E make_directory "${uwp_bindir}")
+      endif()
+      string(REGEX REPLACE "[_]" "" SAFE_TARGET "${NAME}")
+      file(GENERATE OUTPUT "${uwp_bindir}/${NAME}.appxmanifest"
+        INPUT "${CMAKE_CURRENT_SOURCE_DIR}/test/uwp/Package.appxmanifest.in"
+        TARGET "${NAME}"
+      )
+      set_property(SOURCE "${uwp_bindir}/${NAME}.appxmanifest" PROPERTY VS_DEPLOYMENT_CONTENT 1)
+      list(APPEND EXTRA_SOURCES
+        "$<TARGET_OBJECTS:sdl_test_main_uwp>"
+        "${uwp_bindir}/${NAME}.appxmanifest"
+        "test/uwp/logo-50x50.png"
+        "test/uwp/square-44x44.png"
+        "test/uwp/square-150x150.png"
+        "test/uwp/splash-620x300.png"
+      )
+    endif()
     add_executable(${NAME} ${args_SRC})
     SDL_AddCommonCompilerFlags(${NAME} WERROR "${SDL2COMPAT_WERROR}")
     target_link_libraries(${NAME} PRIVATE SDL2::SDL2main SDL2::SDL2test SDL2::SDL2)
@@ -404,6 +437,16 @@ if(SDL2COMPAT_TESTS)
       target_link_libraries(${NAME} PRIVATE "-Wl,-framework,Cocoa")
     else()
       target_compile_definitions(${NAME} PRIVATE ${HAVE_OPENGL_DEFINE})
+    endif()
+    if(WINDOWS_STORE)
+      # MSVC does build the dependent targets (or POST_BUILD commands) when building an application
+      # after starting to debug. By copying the resources in a custom target, the files can be copied afterwards.
+      # FIXME: find out proper way to add assets to UWP package
+      add_custom_target(zzz-resources-copy-${NAME}
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${NAME}>/AppX"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${RESOURCE_FILES} $<TARGET_FILE:SDL3::SDL3-shared> "$<TARGET_FILE_DIR:${NAME}>/AppX"
+      )
+      add_dependencies(${NAME} zzz-resources-copy-${NAME})
     endif()
     if(MATH_LIBRARY)
       target_link_libraries(${NAME} PRIVATE ${MATH_LIBRARY})
