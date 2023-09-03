@@ -5,6 +5,10 @@
 cmake_minimum_required(VERSION 3.0.0...3.5)
 project(sdl2_compat VERSION 2.28.50 LANGUAGES C)
 
+if(WINDOWS_STORE)
+  enable_language(CXX)
+endif()
+
 if(POLICY CMP0074)
   # CMP0074: find_package() uses <PackageName>_ROOT variables.
   cmake_policy(SET CMP0074 NEW)
@@ -302,7 +306,7 @@ if(MSVC)
     set_property(TARGET SDL2 APPEND_STRING PROPERTY LINK_FLAGS " /NODEFAULTLIB:MSVCRT")
   endif()
   if(NOT MSVC_CLANG AND NOT SDL_CPU_ARM32 AND NOT WINDOWS_STORE)
-    set_property(TARGET SDL2 APPEND_STRING PROPERTY LINK_FLAGS " /NODEFAULTLIB")
+    target_link_options(SDL2 PRIVATE /nodefaultlib)
   endif()
 endif()
 if(WINDOWS_STORE)
@@ -310,8 +314,8 @@ if(WINDOWS_STORE)
   target_compile_options(SDL2 PRIVATE "-ZW")
   target_link_libraries(SDL2 PRIVATE vccorlib$<$<CONFIG:Debug>:d>.lib)
   target_link_libraries(SDL2 PRIVATE msvcrt$<$<CONFIG:Debug>:d>.lib)
-  set_property(TARGET SDL2 APPEND_STRING PROPERTY LINK_FLAGS " -nodefaultlib:vccorlib$<$<CONFIG:Debug>:d>")
-  set_property(TARGET SDL2 APPEND_STRING PROPERTY LINK_FLAGS " -nodefaultlib:msvcrt$<$<CONFIG:Debug>:d>")
+  target_link_options(SDL2 PRIVATE -nodefaultlib:vccorlib$<$<CONFIG:Debug>:d>)
+  target_link_options(SDL2 PRIVATE -nodefaultlib:msvcrt$<$<CONFIG:Debug>:d>)
 endif()
 
 # !!! FIXME: what needs to be done for sdl2-compat? Look into this.
@@ -319,12 +323,16 @@ endif()
 #if(APPLE)
 #    add_library(SDL2main STATIC src/SDLmain/macosx/SDLMain.m)
 #    set_source_files_properties(src/SDLmain/macosx/SDLMain.m PROPERTIES LANGUAGE C)
-#elseif(WIN32)
-#    add_library(SDL2main STATIC src/SDLmain/win32/SDL_win32_main.c)
-#    set_target_properties(SDL2main PROPERTIES COMPILE_DEFINITIONS "_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE")  # !!! FIXME: don't use C runtime? We fixed this in SDL2.
-#else()
-    add_library(SDL2main STATIC src/SDLmain/dummy/SDL_dummy_main.c)
-#endif()
+if(WINDOWS_STORE)
+  add_library(SDL2main OBJECT # FIXME: using static SDL2main library creates vccorlib related errors
+    src/SDLmain/winrt/SDL2-WinRTResource_BlankCursor.cur
+    src/SDLmain/winrt/SDL2-WinRTResources.rc
+    src/SDLmain/winrt/SDL_winrt_main_NonXAML.cpp
+  )
+  target_compile_options(SDL2main PRIVATE -ZW)
+else()
+  add_library(SDL2main STATIC src/SDLmain/dummy/SDL_dummy_main.c)
+endif()
 add_library(SDL2::SDL2main ALIAS SDL2main)
 target_include_directories(SDL2main
     PRIVATE
@@ -399,6 +407,10 @@ if(SDL2COMPAT_TESTS)
 
   file(GLOB RESOURCE_FILES test/*.bmp test/*.wav test/*.hex test/moose.dat test/utf8.txt)
 
+  if(WINDOWS_STORE)
+    set_source_files_properties(${RESOURCE_FILES} PROPERTIES VS_DEPLOYENT_LOCATION "Assets")
+  endif()
+
   function(test_program NAME)
     cmake_parse_arguments(args "NONINTERACTIVE" "TIMEOUT" "SRC" ${ARGN})
     if(WINDOWS_STORE)
@@ -447,6 +459,13 @@ if(SDL2COMPAT_TESTS)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${RESOURCE_FILES} $<TARGET_FILE:SDL3::SDL3-shared> "$<TARGET_FILE_DIR:${NAME}>/AppX"
       )
       add_dependencies(${NAME} zzz-resources-copy-${NAME})
+      set_property(TARGET ${NAME} PROPERTY WIN32_EXECUTABLE TRUE)
+      target_link_options(${NAME} PRIVATE
+        "-nodefaultlib:vccorlib$<$<CONFIG:Debug>:d>"
+        "-nodefaultlib:msvcrt$<$<CONFIG:Debug>:d>"
+        vccorlib$<$<CONFIG:Debug>:d>.lib
+        msvcrt$<$<CONFIG:Debug>:d>.lib
+      )
     endif()
     if(MATH_LIBRARY)
       target_link_libraries(${NAME} PRIVATE ${MATH_LIBRARY})
