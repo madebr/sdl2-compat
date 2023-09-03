@@ -64,7 +64,7 @@ jobs:
         sudo apt-get install -y libgl1-mesa-dev libglu1-mesa-dev
     - name: Configure (CMake)
       run: |
-        cmake -B build ${{ matrix.platform.ninja && 'Ninja' || '' }} \
+        cmake -B build ${{ matrix.platform.ninja && '-GNinja' || '' }} \
           -DSDL2COMPAT_WERROR=ON \
           ${{ matrix.platform.cmake-arguments }}
     - name: Build (CMake)
