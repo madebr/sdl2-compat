@@ -26,7 +26,7 @@ jobs:
         - { name: 'Windows MSVC (x64)',       os: windows-latest, artifact: 'SDL2_compat-VC-x64',           shell: sh, no-test-pc: true, msvc: true, msvc-arch: x64 }
         - { name: 'Windows MSVC (arm32)',     os: windows-latest, artifact: 'SDL2_compat-VC-arm32',         shell: sh, no-test-pc: true, msvc: true, msvc-arch: amd64_arm, cross: true }
         - { name: 'Windows MSVC (arm64)',     os: windows-latest, artifact: 'SDL2_compat-VC-arm64',         shell: sh, no-test-pc: true, msvc: true, msvc-arch: amd64_arm64, cross: true }
-        - { name: 'Android',                  os: ubuntu-latest,  artifact: 'SDL2_compat-android-aarch64',  shell: sh, no-test-pc: true, android: true,  android-abi: "arm64-v8a", android-platform: 23, ndk-version: r21e, cross: true, cmake-extra: }
+        - { name: 'Android',                  os: ubuntu-latest,  artifact: 'SDL2_compat-android-aarch64',  shell: sh, no-test-pc: true, android: true, android-abi: "arm64-v8a", android-platform: 23, ndk-version: r21e, cross: true, apk-artifact: "SDL2_compat-android-apks-arm64" }
     defaults:
       run:
         shell: ${{ matrix.platform.shell }}
@@ -126,6 +126,11 @@ jobs:
         set -eu
         export SDL_TESTS_QUICK=1
         ctest -VV --test-dir build/
+    - name: Build apk's (Android & CMake)
+      id: build-apks
+      if: ${{ matrix.platform.android }}
+      run: |
+        cmake --build build --config Release --parallel --verbose --target testaudiocapture-apk testmultiaudio-apk testsprite2-apk
     - name: Run build tests (CMake)
       run: |
         cmake --build build/ --verbose --target sdl2compat-build-tests
@@ -159,3 +164,9 @@ jobs:
         if-no-files-found: error
         name: ${{ matrix.platform.artifact }}
         path: build/dist/SDL2_compat*
+    - uses: actions/upload-artifact@v3
+      if: ${{ always() && matrix.platform.android && steps.build-apks.build.outcome == 'success' }}
+      with:
+        if-no-files-found: error
+        name: ${{ matrix.platform.apk-artifact }}
+        path: build/test/*.apk

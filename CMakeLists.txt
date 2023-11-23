@@ -3,7 +3,7 @@
 #        cmake -DSDL3_INCLUDE_DIRS=/opt/SDL3/include [other stuff ....]
 
 cmake_minimum_required(VERSION 3.0.0...3.5)
-project(sdl2_compat VERSION 2.28.50 LANGUAGES C)
+project(SDL2_compat VERSION 2.28.50 LANGUAGES C)
 
 if(POLICY CMP0074)
   # CMP0074: find_package() uses <PackageName>_ROOT variables.
@@ -29,9 +29,9 @@ else()
   endif()
 endif()
 
-set(SDL_MAJOR_VERSION ${sdl2_compat_VERSION_MAJOR})
-set(SDL_MINOR_VERSION ${sdl2_compat_VERSION_MINOR})
-set(SDL_MICRO_VERSION ${sdl2_compat_VERSION_PATCH})
+set(SDL_MAJOR_VERSION ${SDL2_compat_VERSION_MAJOR})
+set(SDL_MINOR_VERSION ${SDL2_compat_VERSION_MINOR})
+set(SDL_MICRO_VERSION ${SDL2_compat_VERSION_PATCH})
 set(SDL_VERSION "${SDL_MAJOR_VERSION}.${SDL_MINOR_VERSION}.${SDL_MICRO_VERSION}")
 
 include(CheckCSourceCompiles)
