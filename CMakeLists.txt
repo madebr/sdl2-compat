@@ -394,6 +394,12 @@ target_include_directories(SDL2_test
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/SDL2>"
 )
+if(UNIX)
+  CheckLibUnwind()
+endif()
+target_compile_definitions(SDL2_test PRIVATE ${EXTRA_TEST_DEFINES})
+target_include_directories(SDL2_test PRIVATE ${EXTRA_TEST_INCLUDES})
+target_link_libraries(SDL2_test PRIVATE ${EXTRA_TEST_LIBS})
 
 if(SDL2COMPAT_TESTS)
   enable_testing()

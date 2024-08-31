@@ -51,8 +51,13 @@ jobs:
           ${{ matrix.platform.msys-env }}-cmake
           ${{ matrix.platform.msys-env }}-crt
           ${{ matrix.platform.msys-env }}-ninja
+    - name: Install extra Linux dependencies
+      if: ${{ matrix.platform.linux }}
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y libunwind-dev
     - name: Get sdl2-compat sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Install Ninja
       if: ${{ !contains(matrix.platform.shell, 'msys2') }}
       uses: aseprite/get-ninja@main
@@ -65,6 +70,8 @@ jobs:
           CMAKE_ARGUMENTS="$CMAKE_ARGUMENTS -DANDROID_PLATFORM=${{ matrix.platform.android-platform }}"
           CMAKE_ARGUMENTS="$CMAKE_ARGUMENTS -DANDROID_ABI=${{ matrix.platform.android-abi }}"
           CMAKE_ARGUMENTS="$CMAKE_ARGUMENTS -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH"
+        elif test "x${{ matrix.platform.msvc }}${{ matrix.platform.msystem }}" != x; then
+          CMAKE_ARGUMENTS="$CMAKE_ARGUMENTS -DSDL2COMPATTEST_PROCDUMP=ON"
         fi
         echo "CMAKE_ARGUMENTS=${CMAKE_ARGUMENTS}"
         echo "cmake-arguments=${CMAKE_ARGUMENTS}" >>$GITHUB_OUTPUT
@@ -74,6 +81,7 @@ jobs:
       with:
         cmake-arguments: ${{ steps.calculate-arguments.outputs.cmake-arguments }}
         cmake-generator: Ninja
+        build-type: RelWithDebInfo
         version: 3-head
         sdl-test: true
         shell: ${{ matrix.platform.shell }}
@@ -131,7 +139,7 @@ jobs:
         cmake -S cmake/test -B cmake_config_build \
           -DTEST_SHARED=TRUE \
           -DTEST_STATIC=${{ matrix.platform.static || 'false' }} \
-          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo \
           ${{ steps.calculate-arguments.outputs.cmake-arguments }}\
           -GNinja
         cmake --build cmake_config_build --verbose
@@ -145,9 +153,11 @@ jobs:
       run: |
         export PKG_CONFIG_PATH=${{ env.SDL2_ROOT }}/lib/pkgconfig
         cmake/test/test_pkgconfig.sh ${{ !matrix.platform.static && '--no-static' }}
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: ${{ always() && steps.build.outcome == 'success' }}
       with:
         if-no-files-found: error
         name: ${{ matrix.platform.artifact }}
-        path: build/dist/SDL2_compat*
+        path: |
+          build/dist/SDL2_compat*
+          build/minidumps/**

@@ -2,6 +2,18 @@ if(NOT (WIN32 OR APPLE OR CYGWIN OR HAIKU OR BEOS))
   find_library(MATH_LIBRARY m)
 endif()
 
+option(SDL2COMPATTEST_TRACKMEM "Run tests with --trackmem" OFF)
+
+if(WIN32 AND NOT WINDOWS_STORE)
+  option(SDL2COMPATTEST_PROCDUMP "Run tests using sdlprocdump for minidump generation" OFF)
+  add_executable(sdlprocdump win32/sdlprocdump.c)
+  if(SDL2COMPATTEST_PROCDUMP)
+    set(CMAKE_TEST_LAUNCHER "$<TARGET_FILE:sdlprocdump>;--")
+  else()
+    set_property(TARGET sdlprocdump PROPERTY EXCLUDE_FROM_ALL "1")
+  endif()
+endif()
+
 set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL COMPONENTS OpenGL)
 if(OPENGL_FOUND)
@@ -42,9 +54,16 @@ function(test_program NAME)
     target_link_libraries(${NAME} PRIVATE ${MATH_LIBRARY})
   endif()
   if(args_NONINTERACTIVE)
+    set(command ${NAME})
+    if(SDL2COMPATTEST_TRACKMEM)
+      get_property(notrackmem TARGET ${NAME} PROPERTY SDL_NOTRACKMEM)
+      if(NOT notrackmem)
+        list(APPEND command --trackmem)
+      endif()
+    endif()
     add_test(
       NAME ${NAME}
-      COMMAND ${NAME}
+      COMMAND ${command}
       WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     )
     set(timeout 10)
@@ -53,8 +72,9 @@ function(test_program NAME)
     endif()
     set_tests_properties(${NAME}
       PROPERTIES
-      ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
-      TIMEOUT ${timeout}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+        TIMEOUT ${timeout}
+        FAIL_REGULAR_EXPRESSION "Total: [0-9]+\\.[0-9]+ Kb in [1-9][0-9]* allocations"
     )
     if(WIN32 AND CMAKE_VERSION VERSION_GREATER_EQUAL "3.27")
       set_property(TEST ${NAME} APPEND PROPERTY ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_RUNTIME_DLL_DIRS:${NAME}>")
